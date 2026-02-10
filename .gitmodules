@@ -1,0 +1,3 @@
+[submodule "extern/foosdk"]
+	path = foosdk
+	url = https://github.com/hyperblast/foosdk
