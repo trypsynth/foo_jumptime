@@ -1,0 +1,61 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: Win32
+            output: foo_jumptime.dll
+          - arch: x64
+            output: foo_jumptime.dll
+          - arch: ARM64EC
+            output: foo_jumptime.dll
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Configure CMake
+        run: cmake -S . -B build -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foo_jumptime-${{ matrix.arch }}
+          path: build/Release/${{ matrix.output }}
+  package:
+    name: Package and Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create component structure
+        run: |
+          mkdir staging
+          # x86 (Win32) goes to root
+          cp artifacts/foo_jumptime-Win32/foo_jumptime.dll staging/
+          # x64 goes to x64/
+          mkdir staging/x64
+          cp artifacts/foo_jumptime-x64/foo_jumptime.dll staging/x64/
+          # ARM64EC goes to ARM64/
+          mkdir staging/ARM64
+          cp artifacts/foo_jumptime-ARM64EC/foo_jumptime.dll staging/ARM64/
+          cd staging
+          zip -r ../foo_jumptime.fb2k-component .
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: foo_jumptime.fb2k-component
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
